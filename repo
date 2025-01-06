@@ -1,3 +1,12 @@
+
+./install-sh
+yum install php-cli php-xml php-json -y
+yum install php-cli php-xml php-json -y
+ls
+cd /etc/yum.repos.d/
+create one file hpcsa.repo
+(and copy all the folloowing content in it as it is)
+
 [base]
 name=CentOS-$releasever - Base
 baseurl=https://vault.centos.org/7.9.2009/os/$basearch/
