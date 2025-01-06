@@ -1,0 +1,51 @@
+lsb_release -a
+uname -m
+
+
+visit: developer.nvidia.com/cuda-downloads
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+apt install cuda-toolkit-12-6 nvidia-cuda-toolkit cuda-drivers -y
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+nvcc --version
