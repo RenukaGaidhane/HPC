@@ -1,0 +1,47 @@
+benchmarking:
+````````````````
+
+# phoronix-test-suite --help
+
+
+CLI:
+````
+# phoronix-test-suite interactive
+1: Run A Test / Benchmark
+2: Run A Suite      [A Collection Of Tests]
+3: Run A Stress Test      [Concurrent Benchmarks For Heavy System Load]
+4: Show System Hardware / Software Information
+5: Show Available System Sensors
+6: List Available Tests
+7: List Recommended Tests
+8: Search Tests / Suites / Results
+9: Exit
+
+Select Task: 1
+
+
+If you select [1: Run A Test / Benchmark] it will provide more than 500 types of testings:
+
+
+Select Test(s): 19
+
+[ 19: Apache HTTP server ] to benchmark.
+
+Select Test(s): 19
+    Evaluating External Test Dependencies ....................................................................................
+
+The following dependencies are needed and will be installed: 
+
+- gcc
+- gcc-c++
+- make
+- autoconf
+- automake
+- patch
+- expat-devel
+
+This process may take several minutes.
+Please enter your SUDO password below:
+Password: redhatIt require multiple dependencies 
+
+

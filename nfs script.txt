@@ -1,0 +1,32 @@
+#!/bin/bash
+BASEDIR="/storage"
+
+function nfs_master(){
+    ip=${1}
+    apt install nfs-kernel-server -y -qq 2>&1 > /dev/null
+    mkdir -p ${BASEDIR}/{data,scripts}
+    chmod 777 ${BASEDIR} -R
+    printf "${BASEDIR}/data\t${IP}/255.255.255.0(rw,sync,no_root_squash,no_subtree_check)\n${BASEDIR}/scripts\t${IP}/255.255.255.0(rw,sync,no_root_squash,no_subtree_check)" > /etc/exports
+    systemctl restart nfs-kernel-server --now
+    systemctl enable nfs-kernel-server
+    systemctl is-active nfs-kernel-server
+    showmount -e ${IP}
+}
+
+function nfs_compute(){
+        USERNAME="root"
+        IP="192.168.82.74"
+        TEMPSCRIPT=$(mktemp)
+        echo "TempScript : $TEMPSCRIPT"
+        echo "
+            yum install nfs-utils -y -qq 2>&1 >/dev/null
+            mkdir -p ${BASEDIR}/{data,scripts}
+            echo "192.168.82.100:${BASEDIR}/data ${BASEDIR}/data nfs defaults 0 0" >> /etc/fstab" > ${TEMPSCRIPT}
+        eval `ssh-agent -s`
+        ssh-add ~/.ssh/ssh_host_ed25519_key
+        scp -o BatchMode=yes -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o PasswordAuthentication=no -r ${TEMPSCRIPT} ${USERNAME}@${IP}:/tmp/
+        ssh -o BatchMode=yes -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o PasswordAuthentication=no ${USERNAME}@${IP} "bash ${TEMPSCRIPT}"
+
+
+}
+nfs_compute

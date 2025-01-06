@@ -1,0 +1,117 @@
+#https://raw.githubusercontent.com/pushpak-23/hpc-scripts/refs/heads/main/slurm_master.sh
+#!/bin/bash
+username="dhpcsa"
+c_user="dhpcsa"
+m_ip="192.168.82.119"
+c_ip="192.168.82.65"
+# Step 1: Download and extract Slurm source
+#wget https://download.schedmd.com/slurm/slurm-21.08.8.tar.bz2
+#tar -xvjf slurm-21.08.8.tar.bz2
+
+# Step 2: Install necessary dependencies
+#sudo apt update
+#sudo apt install -y build-essential munge libmunge-dev libmunge2 libmysqlclient-dev \
+#  libssl-dev libpam-dev libnuma-dev perl mailutils mariadb-server slurm-client
+
+# Step 3: Build and install Slurm
+#cd /home/${username}/slurm-21.08.8/
+#./configure --prefix=/home/${username}/slurm-21.08.8/
+#make
+#sudo make install
+
+# Step 4: Set up Munge
+#sudo create-munge-key
+#sudo chown munge: /etc/munge/munge.key
+#sudo chmod 400 /etc/munge/munge.key
+sudo systemctl enable munge
+sudo systemctl start munge
+
+# Step 5: Configure Slurm
+sudo mkdir /etc/slurm-llnl
+cd /home/${username}/slurm-21.08.8/etc/
+sudo cp -arfv slurm.conf.example slurm.conf
+sudo cp -arfv slurm.conf /etc/slurm-llnl/
+
+# Add configuration to slurm.conf
+sed -i 's/^ClusterName.*/ClusterName=cluster/' /etc/slurm-llnl/slurm.conf
+sed -i 's/^SlurmctldHost.*/SlurmctldHost=controller/' /etc/slurm-llnl/slurm.conf
+sed -i 's/^AuthType.*/AuthType=auth\/munge/' /etc/slurm-llnl/slurm.conf
+sed -i 's/^ProctrackType.*/ProctrackType=proctrack\/linuxproc/' /etc/slurm-llnl/slurm.conf
+sed -i 's/^AccountingStorageType.*/AccountingStorageType=accounting_storage\/slurmdbd/' /etc/slurm-llnl/slurm.conf
+sed -i 's/^SlurmUser.*/SlurmUser=${username}/' /etc/slurm-llnl/slurm.conf
+sed -i 's/^NodeName.*/NodeName=controller CPUs=4 State=UNKNOWN/' /etc/slurm-llnl/slurm.conf
+sed -i 's/^NodeName.*/NodeName=compute1 CPUs=4 State=UNKNOWN/' /etc/slurm-llnl/slurm.conf
+#sed -i 's/^NodeName.*/NodeName=compute2 CPUs=4 State=UNKNOWN/' /etc/slurm-llnl/slurm.conf
+sed -i 's/^PartitionName.*/PartitionName=newpartition Nodes=ALL Default=YES MaxTime=INFINITE State=UP/' /etc/slurm-llnl/slurm.conf
+sed -i 's/^MailProg.*/MailProg=\/usr\/bin\/mail/' /etc/slurm-llnl/slurm.conf
+
+
+
+# Copy Slurm configurations to necessary directories
+sudo mkdir -p /etc/slurm
+sudo cp -arfv /etc/slurm-llnl/slurm.conf /etc/slurm/
+
+# Step 6: Configure Slurm Database Daemon (slurmdbd)
+sudo cp -arfv slurmdbd.conf.example slurmdbd.conf
+
+sudo sed -i 's/^DbdAddr.*/DbdAddr=192.168.82.119/' /home/$username/slurm-21.08.8/etc/slurmdbd.conf
+sudo sed -i 's/^DbdHost.*/DbdHost=controller/' /home/$username/slurm-21.08.8/etc/slurmdbd.conf
+sudo sed -i 's/^SlurmUser.*/SlurmUser=${username}/' /home/$username/slurm-21.08.8/etc/slurmdbd.conf
+sudo sed -i 's/^StoragePass.*/StoragePass=password/' /home/$username/slurm-21.08.8/etc/slurmdbd.conf
+sudo sed -i 's/^StorageUser.*/StorageUser=${username}/' /home/$username/slurm-21.08.8/etc/slurmdbd.conf
+#sudo bash -c 'cat <<EOL > /home/ubuntu/slurm-21.08.8/etc/slurmdbd.conf
+#DbdAddr=192.168.82.131
+#DbdHost=controller
+#SlurmUser=ubuntu
+#StoragePass=password
+#StorageUser=ubuntu
+#EOL'
+
+sudo chmod 600 /home/${username}/slurm-21.08.8/etc/slurmdbd.conf
+sudo chown ${username}:${username} /home/${username}/slurm-21.08.8/etc/slurmdbd.conf
+
+# Step 7: Configure MySQL for Slurm
+sudo sed -i "s/^bind-address.*/bind-address = 192.168.82.119/" /etc/mysql/mariadb.conf.d/50-server.cnf
+#sudo vi /etc/mysql/debian.cnf   >>insted of localhost 192.168.82.131
+sed -i 's/localhost/192.168.82.119/' /etc/mysql/debian.cnf
+sudo systemctl restart mariadb
+sudo systemctl enable mariadb
+
+sudo mysql -u root -p <<EOF
+CREATE USER '${username}'@'localhost' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON *.* TO '${username}'@'localhost';
+EOF
+
+# Step 8: Set up required directories and permissions
+sudo mkdir -p /var/spool/slurmctld
+sudo chown ${username}:${username} /var/spool/slurmctld
+sudo chmod 700 /var/spool/slurmctld/
+
+# Step 9: Export necessary environment variables
+export LD_LIBRARY_PATH="/home/${username}/slurm-21.08.8/lib"
+export PATH="$PATH:/home/${username}/slurm-21.08.8/sbin/:/home/${username}/slurm-21.08.8/bin/"
+#source ~/.bashrc
+
+# Step 10: Deploy configuration files to compute nodes
+sudo scp -r /etc/slurm-llnl/slurm.conf $c_user@$c_ip:/tmp
+#sudo scp /etc/slurm-llnl/slurm.conf ubuntu@compute2:/tmp
+sudo scp -r /etc/munge/munge.key $c_user@$c_ip:/tmp
+#sudo scp /etc/munge/munge.key ubuntu@compute2:/tmp
+
+# Step 11: Set up and enable Slurm services
+sudo cp -arfv slurmctld.service /etc/systemd/system/
+sudo cp -arfv slurmd.service /etc/systemd/system/
+sudo cp -arvf slurmdbd.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable munge slurmctld slurmd slurmdbd
+sudo systemctl start munge slurmctld slurmd slurmdbd
+
+# Step 12: Verify service statuses
+sudo systemctl is-active munge slurmctld slurmd slurmdbd
+
+# Step 13: Check Slurm status and nodes
+sinfo
+scontrol update nodename=$c_ip state=idle
+#scontrol update nodename=compute2 state=idle
+sinfo
+sudo

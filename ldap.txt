@@ -1,0 +1,87 @@
+`Only if you want to auto mount home dir from LDAP server on LDAP client using NFS:
+
+On Server :
+```````````
+# yum install nfs-utils autofs cifs-utils -y
+
+# vim /etc/exports
+/home *(rw,sync)
+
+:wq
+
+# systemctl restart nfs-server rpcbind autofs 
+# systemctl enable nfs-server rpcbind  autofs
+
+Add NFS services in firewall:
+````````````````````````````````
+# firewall-cmd --zone=public --add-service={nfs,mountd,rpc-bind} --permanent
+# firewall-cmd --reload
+
+
+
+
+
+
+
+
+
+
+LDAP Client: [with autofs home dir ==> NFS auto mount ] [ CENTOS 7 ]
+````````````
+# yum install openldap-clients nss-pam-ldapd -y 
+
+# authconfig --enableldap --enableldapauth --ldapserver=ldap://master.spider.com --ldapbasedn="dc=spider,dc=com" --update
+
+OR
+
+# autoconfig-tui
+
+# systemctl start nslcd.service
+# systemctl enable nslcd.service
+
+# getent passwd ldapuser1
+# getent passwd ldapuser2
+# su - ldapuser1
+# su - ldapuser2
+
+
+
+
+LDAP Client: [ With autofs home dir ] [ CentOS-9 ]
+``````````````````````````````````````````````````````
+# yum -y install openldap-clients sssd sssd-ldap oddjob-mkhomedir
+# authselect select sssd --force
+
+# vim /etc/sssd/sssd.conf
+
+# replace [ldap_uri], [ldap_search_base] to your own environment value
+[domain/default]
+id_provider = ldap
+autofs_provider = ldap
+auth_provider = ldap
+chpass_provider = ldap
+ldap_uri = ldap://master.spider.com/
+ldap_search_base = dc=spider,dc=com
+ldap_id_use_start_tls = False
+ldap_tls_cacertdir = /etc/openldap/certs
+cache_credentials = True
+ldap_tls_reqcert = allow
+
+[sssd]
+services = nss, pam, autofs
+domains = default
+
+[nss]
+homedir_substring = /home
+
+:wq
+
+
+# chmod 600 /etc/sssd/sssd.conf
+# systemctl restart sssd oddjobd
+# systemctl enable sssd oddjobd
+
+getent passwd ldapuser1
+getent passwd ldapuser2
+su - ldapuser1
+su - ldapuser2
